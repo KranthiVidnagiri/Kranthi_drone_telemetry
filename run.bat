@@ -1,0 +1,6 @@
+@echo off
+echo Installing required packages...
+python -m pip install --user flask flask-socketio eventlet
+echo Starting Drone Telemetry Dashboard...
+start http://127.0.0.1:5000/
+python app.py

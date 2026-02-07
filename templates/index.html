@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Drone Telemetry</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #0a0a0a;
+            color: #00ff00;
+            margin: 0;
+            padding: 10px;
+            overflow: hidden;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        .panel {
+            background-color: #111;
+            border: 1px solid #00aa00;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .panel-title {
+            color: #00ff00;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 16px;
+            text-align: center;
+        }
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        .unit {
+            font-size: 14px;
+            color: #00aa00;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .altitude-graph {
+            height: 100px;
+            background-color: #000;
+            border: 1px solid #00aa00;
+            margin: 10px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .compass {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 2px solid #00aa00;
+            margin: 10px auto;
+            position: relative;
+        }
+        .compass-arrow {
+            position: absolute;
+            width: 2px;
+            height: 45%;
+            background-color: red;
+            left: 50%;
+            top: 5%;
+            transform-origin: bottom center;
+            transform: translateX(-50%);
+        }
+        .compass-label {
+            position: absolute;
+            font-size: 12px;
+            color: #00ff00;
+        }
+        .north { top: 2px; left: 50%; transform: translateX(-50%); }
+        .east { top: 50%; right: 2px; transform: translateY(-50%); }
+        .south { bottom: 2px; left: 50%; transform: translateX(-50%); }
+        .west { top: 50%; left: 2px; transform: translateY(-50%); }
+        .gps {
+            font-size: 14px;
+            text-align: center;
+            margin: 5px 0;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        #map {
+            height: 100px;
+            width: 100%;
+            border: 1px solid #00aa00;
+            margin: 5px 0;
+        }
+        .map-container {
+            position: relative;
+            height: 100px;
+        }
+        .coordinates-overlay {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            z-index: 1000;
+            color: #00ff00;
+            font-family: monospace;
+        }
+        .gps-panel {
+            grid-column: span 2;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">DRONE TELEMETRY</div>
+
+        <div class="grid">
+            <div class="panel">
+                <div class="panel-title">ALTITUDE</div>
+                <div class="altitude-graph" id="altitudeGraph"></div>
+                <div class="value" id="altitude">-- <span class="unit">m</span></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">SPEED</div>
+                <div class="value" id="speed">-- <span class="unit">km/h</span></div>
+            </div>
+        </div>
+
+        <div class="panel gps-panel">
+            <div class="panel-title">GPS</div>
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="coordinates-overlay" id="gpsCoords">40° 46.41' N<br>74° 5.13' E</div>
+            </div>
+            <div class="status-bar">
+                <span>SAT: <span id="satellites">--</span></span>
+                <span>HDOP: <span id="hdop">1.2</span></span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel text-center">
+                <div class="panel-title">COMPASS</div>
+                <div class="compass">
+                    <div class="compass-arrow" id="compassArrow"></div>
+                    <div class="compass-label north">N</div>
+                    <div class="compass-label east">E</div>
+                    <div class="compass-label south">S</div>
+                    <div class="compass-label west">W</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">VERTICAL SPEED</div>
+                <div class="value" id="vspeed">-- <span class="unit">m/s</span></div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <div class="panel-title">ACCELERATION</div>
+                <div class="value" id="accel">-- <span class="unit">m/s²</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        const socket = io();
+        let map;
+        let marker;
+
+        let altitudeData = {
+            y: [],
+            type: 'scatter',
+            mode: 'lines',
+            line: {color: '#00ff00', width: 2}
+        };
+
+        let layout = {
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            margin: {t: 0, r: 0, b: 20, l: 0},
+            xaxis: {showgrid: false, showticklabels: false, zeroline: false},
+            yaxis: {showgrid: false, showticklabels: false, zeroline: false},
+            showlegend: false
+        };
+
+        function initMap() {
+            const defaultPosition = [40.7735, -74.0841];
+
+            map = L.map('map', {
+                zoomControl: true,
+                attributionControl: false
+            }).setView(defaultPosition, 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(map);
+
+            marker = L.marker(defaultPosition, {
+                icon: L.divIcon({
+                    className: 'leaflet-drone-marker',
+                    html: '●',
+                    iconSize: [12, 12],
+                    iconAnchor: [6, 6]
+                })
+            }).addTo(map);
+
+            const mapElement = document.getElementById('map');
+            mapElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(0.85)';
+
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                .leaflet-drone-marker { color: #ff0000; font-size: 18px; line-height: 12px; text-shadow: 0 0 3px #000; }
+                .leaflet-container { background: #000; }
+            `;
+            document.head.appendChild(styleEl);
+        }
+
+        window.onload = initMap;
+
+        Plotly.newPlot('altitudeGraph', [altitudeData], layout);
+
+        socket.on('telemetry_update', function(data) {
+            altitudeData.y.push(data.altitude);
+            if (altitudeData.y.length > 50) {
+                altitudeData.y.shift();
+            }
+            Plotly.update('altitudeGraph', {y: [altitudeData.y]}, {}, [0]);
+
+            document.getElementById('altitude').innerHTML = `${data.altitude.toFixed(1)} <span class="unit">m</span>`;
+            document.getElementById('speed').innerHTML = `${data.speed.toFixed(1)} <span class="unit">km/h</span>`;
+            document.getElementById('vspeed').innerHTML = `${data.vspeed.toFixed(1)} <span class="unit">m/s</span>`;
+            document.getElementById('accel').innerHTML = `${data.accel.toFixed(1)} <span class="unit">m/s²</span>`;
+            document.getElementById('satellites').textContent = data.satellites;
+            document.getElementById('hdop').textContent = '1.2';
+            
+            document.getElementById('compassArrow').style.transform = `translateX(-50%) rotate(${data.heading}deg)`;
+            
+            const lat = Math.abs(data.gps_lat);
+            const lon = Math.abs(data.gps_lon);
+            const latDeg = Math.floor(lat);
+            const latMin = (lat - latDeg) * 60;
+            const lonDeg = Math.floor(lon);
+            const lonMin = (lon - lonDeg) * 60;
+            document.getElementById('gpsCoords').innerHTML = 
+                `${latDeg}° ${latMin.toFixed(2)}' N<br>${lonDeg}° ${lonMin.toFixed(2)}' E`;
+            
+            if (map && marker) {
+                const position = [data.gps_lat, data.gps_lon];
+                map.setView(position);
+                marker.setLatLng(position);
+            }
+        });
+
+        window.addEventListener('resize', function() {
+            Plotly.Plots.resize('altitudeGraph');
+            if (map) {
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        });
+    </script>
+</body>
+</html>
